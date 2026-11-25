@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Mixamo 3D Open World</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; font-family: system-ui, -apple-system, sans-serif; touch-action: none; }
+  #canvas-wrap { position: fixed; inset: 0; }
+
+  #gear-btn {
+    position: fixed; top: 14px; right: 14px; z-index: 30;
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(15,23,42,0.72); color: #f8fafc;
+    font-size: 20px; display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px); cursor: pointer;
+  }
+
+  #toast {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+    z-index: 40; padding: 8px 16px; border-radius: 999px;
+    background: rgba(15,23,42,0.86); color: #e2e8f0; font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.14); opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  #toast.show { opacity: 1; }
+
+  #joy-zone {
+    position: fixed; left: 22px; bottom: 22px; z-index: 20;
+    width: 124px; height: 124px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.22);
+    backdrop-filter: blur(4px);
+  }
+  #joy-knob {
+    position: absolute; left: 50%; top: 50%;
+    width: 48px; height: 48px; margin-left: -24px; margin-top: -24px;
+    border-radius: 50%; background: rgba(248,250,252,0.78);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  }
+
+  #right-controls {
+    position: fixed; right: 22px; bottom: 22px; z-index: 20;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  }
+  #emote-bar {
+    display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 240px;
+  }
+  .emote-pill {
+    padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(15,23,42,0.72); color: #f8fafc; backdrop-filter: blur(6px);
+    cursor: pointer;
+  }
+  .emote-pill.active { background: #0284c7; border-color: #38bdf8; }
+
+  .action-row { display: flex; gap: 10px; }
+  .round-btn {
+    width: 62px; height: 62px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.28);
+    background: rgba(15,23,42,0.72); color: #ffffff;
+    font-size: 12px; font-weight: 700; backdrop-filter: blur(6px); cursor: pointer;
+  }
+  .round-btn:active { transform: scale(0.93); background: rgba(56,189,248,0.45); }
+
+  #drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 320px; max-width: 88vw;
+    z-index: 50; background: rgba(15,23,42,0.96); color: #f1f5f9;
+    border-left: 1px solid rgba(255,255,255,0.12);
+    padding: 16px; overflow-y: auto;
+    transform: translateX(105%); transition: transform 0.25s ease;
+  }
+  #drawer.open { transform: translateX(0); }
+  #drawer h3 { font-size: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .sec { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sec label { display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .btn-primary {
+    width: 100%; padding: 11px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, #0284c7, #2563eb); color: #fff;
+    font-weight: 700; font-size: 13px; cursor: pointer; margin-bottom: 8px;
+  }
+  .btn-secondary {
+    width: 100%; padding: 10px; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px;
+    background: rgba(30,41,59,0.9); color: #e2e8f0;
+    font-weight: 600; font-size: 12px; cursor: pointer;
+  }
+  .btn-danger {
+    width: 100%; padding: 8px; border: 1px solid rgba(239,68,68,0.4); border-radius: 8px;
+    background: rgba(239,68,68,0.15); color: #fca5a5; font-size: 12px; margin-top: 8px; cursor: pointer;
+  }
+  select, input[type="range"] {
+    width: 100%; padding: 8px; border-radius: 8px;
+    background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.14);
+    margin-bottom: 8px; font-size: 13px;
+  }
+  .row-check { display: flex; align-items: center; justify-content: space-between; font-size: 13px; margin: 6px 0; }
+  .close-x { background: none; border: none; color: #94a3b8; font-size: 20px; padding: 4px 8px; cursor: pointer; }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="toast">Pronto</div>
+
+<button id="gear-btn" title="Configurações">⚙️</button>
+
+<div id="joy-zone"><div id="joy-knob"></div></div>
+
+<div id="right-controls">
+  <div id="emote-bar"></div>
+  <div class="action-row">
+    <button class="round-btn" id="btn-sprint">CORRER</button>
+    <button class="round-btn" id="btn-jump">PULAR</button>
+  </div>
+</div>
+
+<aside id="drawer">
+  <h3>
+    <span>Mixamo 3D Studio</span>
+    <button class="close-x" id="btn-close-drawer">✕</button>
+  </h3>
+
+  <div class="sec">
+    <button class="btn-primary" id="btn-open-mixamo">🎭 Abrir Mixamo em Tela Cheia</button>
+    <button class="btn-secondary" id="btn-import-local">📂 Importar .FBX do Celular</button>
+  </div>
+
+  <div class="sec">
+    <label>Personagem Salvo</label>
+    <select id="sel-character"></select>
+    <button class="btn-danger" id="btn-delete-char">Excluir Personagem Atual</button>
+  </div>
+
+  <div class="sec">
+    <label>Mapeamento dos Movimentos</label>
+    <label>Parado (Idle)</label><select id="map-idle"></select>
+    <label>Andando (Walk)</label><select id="map-walk"></select>
+    <label>Correndo (Run)</label><select id="map-run"></select>
+    <label>Pulando (Jump)</label><select id="map-jump"></select>
+  </div>
+
+  <div class="sec">
+    <label>Ajustes do Modelo</label>
+    <div class="row-check">
+      <span>Travar eixo (In-Place forçado)</span>
+      <input type="checkbox" id="chk-inplace" checked />
+    </div>
+    <div class="row-check">
+      <span>Mostrar Esqueleto (Debug)</span>
+      <input type="checkbox" id="chk-skeleton" />
+    </div>
+    <label>Velocidade da Animação (<span id="lbl-speed">1.0x</span>)</label>
+    <input type="range" id="rng-speed" min="0.4" max="2.0" step="0.1" value="1.0" />
+  </div>
+</aside>
+
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+const toastEl = document.getElementById('toast');
+let toastTimer;
+function showToast(msg, ms = 2400) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+}
+
+// =========================================================================
+// 1. CENA 3D E MUNDO ABERTO
+// =========================================================================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.FogExp2(0x87ceeb, 0.0085);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 350);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('canvas-wrap').appendChild(renderer.domElement);
+
+const hemi = new THREE.HemisphereLight(0xdbeafe, 0x3f6212, 0.85);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfffbeb, 1.5);
+sun.position.set(35, 55, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.near = 5;
+sun.shadow.camera.far = 160;
+const d = 45;
+sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
+sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
+scene.add(sun);
+
+function buildGroundTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#4d7c0f';
+  ctx.fillRect(0, 0, 256, 256);
+  ctx.fillStyle = '#3f6212';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillRect(128, 128, 128, 128);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(60, 60);
+  return tex;
+}
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(240, 240),
+  new THREE.MeshStandardMaterial({ map: buildGroundTexture(), roughness: 0.92 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const platforms = [];
+function addPlatform(x, y, z, w, h, len, color = 0x64748b) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, len),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
+  );
+  mesh.position.set(x, y + h / 2, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  platforms.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - len / 2, maxZ: z + len / 2, topY: y + h });
+}
+
+addPlatform(0, 0, -12, 8, 0.4, 8, 0x94a3b8);
+addPlatform(6, 0, -12, 3, 1.1, 3, 0x475569);
+addPlatform(10, 0, -12, 3, 2.0, 3, 0x334155);
+addPlatform(14, 0, -12, 4, 2.9, 4, 0x1e293b);
+addPlatform(-12, 0, -8, 6, 1.4, 6, 0xb45309);
+
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x713f12, roughness: 0.9 });
+const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 });
+for (let i = 0; i < 45; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 16 + Math.random() * 80;
+  const tx = Math.cos(angle) * dist;
+  const tz = Math.sin(angle) * dist;
+  const tree = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 2.6, 6), trunkMat);
+  trunk.position.y = 1.3; trunk.castShadow = true;
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(2.1, 4.4, 7), leafMat);
+  crown.position.y = 4.2; crown.castShadow = true;
+  tree.add(trunk, crown);
+  tree.position.set(tx, 0, tz);
+  scene.add(tree);
+}
+
+// =========================================================================
+// 2. CONTAINER DO JOGADOR + ANIMAÇÕES MIXAMO
+// =========================================================================
+const playerRoot = new THREE.Group();
+scene.add(playerRoot);
+
+function createFallbackAvatar() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.35, 0.9, 6, 12),
+    new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.5 })
+  );
+  body.position.y = 0.95; body.castShadow = true;
+  const visor = new THREE.Mesh(
+    new THREE.BoxGeometry(0.4, 0.16, 0.2),
+    new THREE.MeshStandardMaterial({ color: 0x0f172a })
+  );
+  visor.position.set(0, 1.48, 0.28);
+  g.add(body, visor);
+  return g;
+}
+
+let currentModel = createFallbackAvatar();
+playerRoot.add(currentModel);
+
+let mixer = null;
+let skeletonHelper = null;
+let actions = {};
+let activeAction = null;
+let activeEmote = null;
+let libraryData = [];
+let currentChar = null;
+
+const animMap = { idle: '', walk: '', run: '', jump: '' };
+const fbxLoader = new FBXLoader();
+
+function sanitizeClipForModel(clip, model, forceInPlace) {
+  const boneNames = new Set();
+  model.traverse(obj => { if (obj.isBone) boneNames.add(obj.name); });
+
+  const hasColon = Array.from(boneNames).some(n => n.includes(':'));
+  const cloned = clip.clone();
+
+  cloned.tracks.forEach(track => {
+    const dotIdx = track.name.indexOf('.');
+    if (dotIdx === -1) return;
+    let nodeName = track.name.slice(0, dotIdx);
+    const prop = track.name.slice(dotIdx);
+
+    if (!boneNames.has(nodeName)) {
+      const alt = hasColon ? nodeName.replace('mixamorig', 'mixamorig:') : nodeName.replace('mixamorig:', 'mixamorig');
+      if (boneNames.has(alt)) {
+        track.name = alt + prop;
+        nodeName = alt;
+      }
+    }
+
+    if (forceInPlace && prop === '.position' && nodeName.toLowerCase().includes('hips')) {
+      const vals = track.values;
+      const startX = vals[0], startZ = vals[2];
+      for (let i = 0; i < vals.length; i += 3) {
+        vals[i] = startX;
+        vals[i + 2] = startZ;
+      }
+    }
+  });
+  return cloned;
+}
+
+function clearCurrentModel() {
+  if (currentModel) playerRoot.remove(currentModel);
+  if (skeletonHelper) { scene.remove(skeletonHelper); skeletonHelper = null; }
+  if (mixer) mixer.stopAllAction();
+  mixer = null;
+  actions = {};
+  activeAction = null;
+  activeEmote = null;
+}
+
+async function loadCharacter(charObj) {
+  if (!charObj) return;
+  currentChar = charObj;
+  showToast('Carregando ' + charObj.name + '...', 4000);
+  clearCurrentModel();
+
+  try {
+    const model = await fbxLoader.loadAsync(charObj.modelUrl);
+
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const scaleFactor = size.y > 0 ? (1.8 / size.y) : 0.01;
+    model.scale.setScalar(scaleFactor);
+
+    const boxAfter = new THREE.Box3().setFromObject(model);
+    model.position.y = -boxAfter.min.y;
+
+    model.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    currentModel = model;
+    playerRoot.add(currentModel);
+
+    skeletonHelper = new THREE.SkeletonHelper(currentModel);
+    skeletonHelper.visible = document.getElementById('chk-skeleton').checked;
+    scene.add(skeletonHelper);
+
+    mixer = new THREE.AnimationMixer(currentModel);
+    const forceInPlace = document.getElementById('chk-inplace').checked;
+
+    if (model.animations && model.animations.length > 0) {
+      const baseClip = sanitizeClipForModel(model.animations[0], model, forceInPlace);
+      actions['base_model'] = mixer.clipAction(baseClip);
+    }
+
+    for (const anim of (charObj.animations || [])) {
+      try {
+        const animFbx = await fbxLoader.loadAsync(anim.url);
+        if (animFbx.animations && animFbx.animations.length > 0) {
+          const clip = sanitizeClipForModel(animFbx.animations[0], model, forceInPlace);
+          actions[anim.name] = mixer.clipAction(clip);
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar animação:', anim.name, err);
+      }
+    }
+
+    autoMapAnimations();
+    rebuildMappingSelectors();
+    rebuildEmoteBar();
+    playAction(animMap.idle || Object.keys(actions)[0], true);
+    showToast(charObj.name + ' pronto (' + Object.keys(actions).length + ' movimentos)');
+  } catch (err) {
+    console.error(err);
+    currentModel = createFallbackAvatar();
+    playerRoot.add(currentModel);
+    showToast('Erro ao carregar FBX', 3000);
+  }
+}
+
+function autoMapAnimations() {
+  const names = Object.keys(actions);
+  const findBy = (regex) => names.find(n => regex.test(n.toLowerCase())) || '';
+  animMap.idle = findBy(/idle|parado|breath|stand/) || names[0] || '';
+  animMap.walk = findBy(/walk|andar|andando/) || '';
+  animMap.run  = findBy(/run|corr|sprint/) || animMap.walk || '';
+  animMap.jump = findBy(/jump|pul/) || '';
+}
+
+function playAction(name, loop = true, fadeTime = 0.22) {
+  if (!name || !actions[name]) return;
+  const next = actions[name];
+  if (activeAction === next) return;
+
+  next.reset();
+  next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
+  next.clampWhenFinished = !loop;
+  next.play();
+
+  if (activeAction) {
+    activeAction.crossFadeTo(next, fadeTime, false);
+  }
+  activeAction = next;
+}
+
+// =========================================================================
+// 3. CONTROLES MOBILE + TECLADO/MOUSE (EMULADOR/PC)
+// =========================================================================
+const joyZone = document.getElementById('joy-zone');
+const joyKnob = document.getElementById('joy-knob');
+const input = { x: 0, y: 0, sprint: false };
+const keys = {};
+let joyTouchId = null;
+
+function updateJoystick(clientX, clientY) {
+  const rect = joyZone.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const maxR = rect.width / 2 - 20;
+  let dx = clientX - cx;
+  let dy = clientY - cy;
+  const dist = Math.hypot(dx, dy);
+  if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+  joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+  input.x = dx / maxR;
+  input.y = dy / maxR;
+  if (Math.hypot(input.x, input.y) > 0.15) activeEmote = null;
+}
+
+joyZone.addEventListener('touchstart', e => {
+  e.stopPropagation();
+  const t = e.changedTouches[0];
+  joyTouchId = t.identifier;
+  updateJoystick(t.clientX, t.clientY);
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) {
+      updateJoystick(t.clientX, t.clientY);
+    } else if (t.identifier === camTouchId) {
+      camYaw -= (t.clientX - lastCamX) * 0.0065;
+      camPitch = THREE.MathUtils.clamp(camPitch + (t.clientY - lastCamY) * 0.005, 0.15, 1.15);
+      lastCamX = t.clientX;
+      lastCamY = t.clientY;
+    }
+  }
+}, { passive: false });
+
+window.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) {
+      joyTouchId = null;
+      input.x = 0; input.y = 0;
+      joyKnob.style.transform = 'translate(0,0)';
+    }
+    if (t.identifier === camTouchId) camTouchId = null;
+  }
+});
+
+let camTouchId = null, lastCamX = 0, lastCamY = 0, isMouseDragging = false;
+let camYaw = 0, camPitch = 0.38, camDist = 5.6;
+
+renderer.domElement.addEventListener('touchstart', e => {
+  if (camTouchId === null) {
+    const t = e.changedTouches[0];
+    camTouchId = t.identifier;
+    lastCamX = t.clientX;
+    lastCamY = t.clientY;
+  }
+});
+renderer.domElement.addEventListener('mousedown', e => {
+  isMouseDragging = true; lastCamX = e.clientX; lastCamY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!isMouseDragging) return;
+  camYaw -= (e.clientX - lastCamX) * 0.0065;
+  camPitch = THREE.MathUtils.clamp(camPitch + (e.clientY - lastCamY) * 0.005, 0.15, 1.15);
+  lastCamX = e.clientX; lastCamY = e.clientY;
+});
+window.addEventListener('mouseup', () => { isMouseDragging = false; });
+
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') triggerJump();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+const btnSprint = document.getElementById('btn-sprint');
+function toggleSprint(e) {
+  if (e) e.stopPropagation();
+  input.sprint = !input.sprint;
+  btnSprint.style.background = input.sprint ? 'rgba(2,132,199,0.85)' : 'rgba(15,23,42,0.72)';
+}
+btnSprint.addEventListener('touchstart', toggleSprint, { passive: false });
+btnSprint.addEventListener('click', toggleSprint);
+
+let velY = 0, isGrounded = true;
+function triggerJump(e) {
+  if (e) e.stopPropagation();
+  if (isGrounded) {
+    velY = 8.4;
+    isGrounded = false;
+    activeEmote = null;
+    if (animMap.jump) playAction(animMap.jump, false, 0.12);
+  }
+}
+const btnJump = document.getElementById('btn-jump');
+btnJump.addEventListener('touchstart', triggerJump, { passive: false });
+btnJump.addEventListener('click', triggerJump);
+
+function getFloorHeight(x, z, curY) {
+  let h = 0;
+  for (const p of platforms) {
+    if (x >= p.minX && x <= p.maxX && z >= p.minZ && z <= p.maxZ && curY >= p.topY - 0.65) {
+      if (p.topY > h) h = p.topY;
+    }
+  }
+  return h;
+}
+
+// =========================================================================
+// 4. INTERFACE DA ENGRENAGEM E INTEGRAÇÃO NATIVA
+// =========================================================================
+const drawer = document.getElementById('drawer');
+document.getElementById('gear-btn').onclick = () => drawer.classList.add('open');
+document.getElementById('btn-close-drawer').onclick = () => drawer.classList.remove('open');
+
+document.getElementById('btn-open-mixamo').onclick = () => {
+  drawer.classList.remove('open');
+  if (window.AndroidWorld) window.AndroidWorld.openMixamo();
+  else showToast('Abra pelo aplicativo Android para usar o Mixamo integrado');
+};
+
+document.getElementById('btn-import-local').onclick = () => {
+  drawer.classList.remove('open');
+  if (window.AndroidWorld) window.AndroidWorld.importLocalFbx();
+  else showToast('Disponível no aplicativo Android');
+};
+
+document.getElementById('chk-skeleton').onchange = e => {
+  if (skeletonHelper) skeletonHelper.visible = e.target.checked;
+};
+
+document.getElementById('chk-inplace').onchange = () => {
+  if (currentChar) loadCharacter(currentChar);
+};
+
+document.getElementById('rng-speed').oninput = e => {
+  const v = parseFloat(e.target.value);
+  document.getElementById('lbl-speed').textContent = v.toFixed(1) + 'x';
+  if (mixer) mixer.timeScale = v;
+};
+
+const selChar = document.getElementById('sel-character');
+selChar.onchange = () => {
+  const chosen = libraryData.find(c => c.name === selChar.value);
+  if (chosen) loadCharacter(chosen);
+};
+
+document.getElementById('btn-delete-char').onclick = () => {
+  if (!currentChar || !window.AndroidWorld) return;
+  window.AndroidWorld.deleteCharacter(currentChar.name);
+  currentChar = null;
+  clearCurrentModel();
+  currentModel = createFallbackAvatar();
+  playerRoot.add(currentModel);
+  window.refreshLibrary();
+  showToast('Personagem removido');
+};
+
+function rebuildMappingSelectors() {
+  const keysList = Object.keys(actions);
+  ['idle', 'walk', 'run', 'jump'].forEach(slot => {
+    const el = document.getElementById('map-' + slot);
+    el.innerHTML = '<option value="">(Nenhum)</option>' +
+      keysList.map(k => `<option value="${k}" ${animMap[slot] === k ? 'selected' : ''}>${k}</option>`).join('');
+    el.onchange = () => { animMap[slot] = el.value; };
+  });
+}
+
+function rebuildEmoteBar() {
+  const bar = document.getElementById('emote-bar');
+  bar.innerHTML = '';
+  const core = new Set([animMap.idle, animMap.walk, animMap.run, animMap.jump]);
+  Object.keys(actions).forEach(name => {
+    if (core.has(name)) return;
+    const btn = document.createElement('button');
+    btn.className = 'emote-pill';
+    btn.textContent = name;
+    btn.onclick = () => {
+      activeEmote = name;
+      playAction(name, true, 0.2);
+      document.querySelectorAll('.emote-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    bar.appendChild(btn);
+  });
+}
+
+window.refreshLibrary = function (selectName = null) {
+  if (!window.AndroidWorld) return;
+  try {
+    libraryData = JSON.parse(window.AndroidWorld.getCharactersJson());
+  } catch (e) {
+    libraryData = [];
+  }
+
+  selChar.innerHTML = libraryData.length
+    ? libraryData.map(c => `<option value="${c.name}">${c.name} (${c.animations.length} mov.)</option>`).join('')
+    : '<option value="">Nenhum personagem salvo ainda</option>';
+
+  if (libraryData.length > 0) {
+    const targetName = selectName || (currentChar ? currentChar.name : libraryData[0].name);
+    const found = libraryData.find(c => c.name === targetName) || libraryData[0];
+    selChar.value = found.name;
+    loadCharacter(found);
+  }
+};
+
+window.onNativeLibraryUpdated = function (charName) {
+  window.refreshLibrary(charName);
+};
+
+// =========================================================================
+// 5. LOOP PRINCIPAL
+// =========================================================================
+const clock = new THREE.Clock();
+const camTarget = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  let ix = input.x, iy = input.y;
+  if (keys['KeyW'] || keys['ArrowUp']) iy -= 1;
+  if (keys['KeyS'] || keys['ArrowDown']) iy += 1;
+  if (keys['KeyA'] || keys['ArrowLeft']) ix -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
+
+  const mag = Math.min(1, Math.hypot(ix, iy));
+  if (mag > 0.1) {
+    activeEmote = null;
+    const moveAngle = Math.atan2(ix, iy) + camYaw;
+    const isRunning = input.sprint || keys['ShiftLeft'] || mag > 0.78;
+    const speed = isRunning ? 7.2 : 3.4;
+
+    playerRoot.position.x += Math.sin(moveAngle) * speed * dt;
+    playerRoot.position.z += Math.cos(moveAngle) * speed * dt;
+
+    let diff = moveAngle - playerRoot.rotation.y;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    playerRoot.rotation.y += diff * Math.min(1, dt * 11);
+
+    if (isGrounded) {
+      const targetAnim = isRunning ? (animMap.run || animMap.walk) : (animMap.walk || animMap.run);
+      if (targetAnim) playAction(targetAnim, true, 0.2);
+    }
+  } else if (isGrounded && !activeEmote) {
+    if (animMap.idle) playAction(animMap.idle, true, 0.25);
+  }
+
+  velY -= 22 * dt;
+  playerRoot.position.y += velY * dt;
+  const floorY = getFloorHeight(playerRoot.position.x, playerRoot.position.z, playerRoot.position.y);
+  if (playerRoot.position.y <= floorY) {
+    playerRoot.position.y = floorY;
+    velY = 0;
+    isGrounded = true;
+  }
+
+  if (mixer) mixer.update(dt);
+
+  camTarget.set(playerRoot.position.x, playerRoot.position.y + 1.35, playerRoot.position.z);
+  const camX = camTarget.x - Math.sin(camYaw) * Math.cos(camPitch) * camDist;
+  const camY = camTarget.y + Math.sin(camPitch) * camDist;
+  const camZ = camTarget.z - Math.cos(camYaw) * Math.cos(camPitch) * camDist;
+  camera.position.lerp(new THREE.Vector3(camX, Math.max(0.4, camY), camZ), Math.min(1, dt * 10));
+  camera.lookAt(camTarget);
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+window.refreshLibrary();
+animate();
+</script>
+</body>
+</html>

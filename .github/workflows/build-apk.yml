@@ -1,0 +1,38 @@
+name: Build APK Automatico
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar APK Debug
+        run: gradle assembleDebug
+
+      - name: Publicar APK para Download Direto
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          TAG="v1.0.${{ github.run_number }}"
+          gh release create "$TAG" "$APK_PATH" --title "APK Build #${{ github.run_number }}" --notes "Gerado automaticamente pela Fabrica de APK"
